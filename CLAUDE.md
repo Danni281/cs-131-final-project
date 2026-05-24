@@ -34,7 +34,7 @@ temporal filtering"):
 | 0 | Webcam + FPS counter | done | folded into phase 1 entry point |
 | 1 | Face Mesh overlay + save key | done | `src/main.py`, captures land in `captures/` |
 | 2 | Landmark-ratio metrics + CSV | done | `src/metrics.py`. refine_landmarks=True (iris). CSV per run in `metrics_logs/`. Press `m` to toggle HUD. |
-| 3 | Single-frame correction (milestone) | done | `src/warp.py`. FACE_OVAL ring + image anchors are fixed; everything else shrinks toward face center by `--scale` (default 0.92). scipy.spatial.Delaunay → per-triangle affine → cv2.remap. Press `c` for side-by-side view. Smoke test: 41ms per warp on 720p. |
+| 3 | Single-frame correction (milestone) | done | `src/warp.py`. **Z-weighted shrink** is default: `warp.depth_weighted_target` pulls each landmark toward face center by `strength * normalized_depth` where normalized_depth=1 at closest landmark (nose tip) and 0 at farthest (cheek/jaw). FACE_OVAL stays pinned. Uniform-shrink baseline still available via `--uniform-scale` for ablation. scipy.spatial.Delaunay → per-triangle affine → cv2.remap. Press `c` for side-by-side. ~41ms per warp at 720p. |
 | 4 | Boundary alpha blending | done | `warp.make_alpha_mask` fills FACE_OVAL polygon, erodes by `--feather/2`, Gaussian-blurs (sigma=feather/2). `warp.blend` does `alpha*corrected + (1-alpha)*raw`. Default feather=30. Adds ~12ms at default; feather=80 adds ~90ms (kernel grows). |
 | 5 | Per-frame baseline video | todo | record 10s clips: still, talking, head-turn |
 | 6 | Temporal smoothing | todo | EMA alpha=0.7 first, then per-landmark Kalman variant |
@@ -64,10 +64,14 @@ temporal filtering"):
 ## Open questions / TODO before milestone
 
 - **Connect phase-2 metrics to phase-3 correction strength** (TA explicitly
-  flagged "define your distortion metrics with more detail"). The 0.92 scale
-  should become a function of measured ratios, not a constant. e.g. scale =
-  f(nose_w/face_w deviation from a calibrated long-lens reference).
-- Decide on a 3D scaffold or commit to 2D radial shrink with justification.
+  flagged "define your distortion metrics with more detail"). The default
+  `--strength 0.15` should become a function of measured ratios, not a
+  constant. e.g. strength = f(nose_w/face_w deviation from a calibrated
+  long-lens reference).
+- ~~Decide on a 3D scaffold or commit to 2D radial shrink with
+  justification.~~ DONE — Phase 3 now uses MediaPipe z to weight
+  per-landmark shrink (closer = more shrink). Naive uniform shrink
+  visibly puffed the cheeks; depth-weighted version doesn't.
 - Phase 4 blending intentionally keeps the hard-boundary warp under the
   hood — the alpha mask only hides the discontinuity at the head outline.
   A future refactor could distribute the displacement across the boundary
