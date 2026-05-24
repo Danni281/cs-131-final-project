@@ -43,7 +43,12 @@ temporal filtering"):
 
 ## Decisions / non-obvious choices
 
-- **Python 3.14** works for mediapipe 0.10.35; no need to downgrade.
+- **Python 3.12** required. Tried 3.14 first: the only mediapipe wheel
+  available for 3.14 is 0.10.35, which is a stripped-down "tasks-only" build
+  with no `mp.solutions.face_mesh` and a broken `tasks` namespace. Downgraded
+  to 3.12 and pinned `mediapipe==0.10.21` (last release with the legacy
+  solutions API we use). `opencv-python` pinned compatible with `numpy<2`
+  because mediapipe 0.10.21 needs the older numpy.
 - `refine_landmarks=False` in `make_face_mesh()` — saves cost; iris not needed
   for perspective correction.
 - Frame is `cv2.flip`'d horizontally for selfie ergonomics — remember to undo
@@ -62,7 +67,7 @@ temporal filtering"):
 
 - GitHub: https://github.com/Danni281/cs-131-final-project (private)
 - Local: `~/Desktop/cs-131-final-project`
-- Venv: `.venv/` (Python 3.14)
+- Venv: `.venv/` (Python 3.12 — see decisions above)
 
 ## How to run right now
 
