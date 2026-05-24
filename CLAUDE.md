@@ -33,7 +33,7 @@ temporal filtering"):
 |--:|-------|-------|-------|
 | 0 | Webcam + FPS counter | done | folded into phase 1 entry point |
 | 1 | Face Mesh overlay + save key | done | `src/main.py`, captures land in `captures/` |
-| 2 | Landmark-ratio metrics + CSV | todo | IPD/face_w, nose_w/face_w, nose-chin/face_w, ear-ear/face_h |
+| 2 | Landmark-ratio metrics + CSV | done | `src/metrics.py`. refine_landmarks=True (iris). CSV per run in `metrics_logs/`. Press `m` to toggle HUD. |
 | 3 | Single-frame correction (milestone) | todo | Delaunay + cv2.remap, scale=0.92 to start, boundary fixed |
 | 4 | Boundary alpha blending | todo | |
 | 5 | Per-frame baseline video | todo | record 10s clips: still, talking, head-turn |
@@ -55,6 +55,11 @@ temporal filtering"):
   before saving raw for ground-truth comparisons in phase 8.
 - Started 2D-only. Proposal mentioned MediaPipe's z-coords as a 3D scaffold;
   revisit if uniform shrink underperforms (phase 3 stretch).
+- Phase 2 landmark indices (in `src/metrics.py`):
+  iris 468/473, nose tip 4, chin 152, forehead 10, alar 49/279,
+  face edges 234/454, ear proxies 127/356. Pre-Phase-2 saved
+  `_landmarks.npy` files have only 468 points (no iris) so
+  `compute_metrics` returns None on them by design.
 
 ## Open questions / TODO before milestone
 
