@@ -34,7 +34,7 @@ temporal filtering"):
 | 0 | Webcam + FPS counter | done | folded into phase 1 entry point |
 | 1 | Face Mesh overlay + save key | done | `src/main.py`, captures land in `captures/` |
 | 2 | Landmark-ratio metrics + CSV | done | `src/metrics.py`. refine_landmarks=True (iris). CSV per run in `metrics_logs/`. Press `m` to toggle HUD. |
-| 3 | Single-frame correction (milestone) | todo | Delaunay + cv2.remap, scale=0.92 to start, boundary fixed |
+| 3 | Single-frame correction (milestone) | done | `src/warp.py`. FACE_OVAL ring + image anchors are fixed; everything else shrinks toward face center by `--scale` (default 0.92). scipy.spatial.Delaunay → per-triangle affine → cv2.remap. Press `c` for side-by-side view. Smoke test: 41ms per warp on 720p. |
 | 4 | Boundary alpha blending | todo | |
 | 5 | Per-frame baseline video | todo | record 10s clips: still, talking, head-turn |
 | 6 | Temporal smoothing | todo | EMA alpha=0.7 first, then per-landmark Kalman variant |
@@ -63,10 +63,18 @@ temporal filtering"):
 
 ## Open questions / TODO before milestone
 
-- Connect phase-2 metrics to phase-3 correction strength (TA explicitly flagged
-  "define your distortion metrics with more detail"). The 0.92 scale should
-  become a function of measured ratios, not a constant.
+- **Connect phase-2 metrics to phase-3 correction strength** (TA explicitly
+  flagged "define your distortion metrics with more detail"). The 0.92 scale
+  should become a function of measured ratios, not a constant. e.g. scale =
+  f(nose_w/face_w deviation from a calibrated long-lens reference).
 - Decide on a 3D scaffold or commit to 2D radial shrink with justification.
+- Phase 4 (boundary alpha mask) will fix the hard cut at the face oval; right
+  now the FACE_OVAL ring is pinned and central pts shrink, so triangles
+  spanning the boundary do all the deformation in one step. Soft mask will
+  blend instead.
+- Warp at 41ms/frame is ~24 FPS warp-only; combined pipeline will land below
+  the 25 FPS target. Phase 7 (precompute triangulation, cache map arrays
+  across frames) is what fixes this.
 
 ## Repo
 
