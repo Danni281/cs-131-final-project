@@ -36,8 +36,8 @@ temporal filtering"):
 | 2 | Landmark-ratio metrics + CSV | done | `src/metrics.py`. refine_landmarks=True (iris). CSV per run in `metrics_logs/`. Press `m` to toggle HUD. |
 | 3 | Single-frame correction (milestone) | done | `src/warp.py`. **NEW DEFAULT: `dense`** (`dense_perspective_correct`) — treats MediaPipe (x,y,z) as a sparse depth signal, builds a dense per-pixel depth map by barycentric interpolation across the Delaunay mesh, then applies true pinhole perspective re-projection per pixel: `scale = α(t+1)/(t+α)` with `t = z(u,v)/d_old`. Smooth depth = smooth warp = no sparse-landmark artifacts. ~44ms on 720p. Controlled by `--alpha` (1=off, 2=double virtual camera distance, ∞=orthographic). Sparse-landmark modes (nose, perspective, uniform) kept for ablation. `--auto-strength` still works for the nose/perspective sparse modes. |
 | 4 | Boundary alpha blending | done | `warp.make_alpha_mask` fills FACE_OVAL polygon, erodes by `--feather/2`, Gaussian-blurs (sigma=feather/2). `warp.blend` does `alpha*corrected + (1-alpha)*raw`. Default feather=30. Adds ~12ms at default; feather=80 adds ~90ms (kernel grows). |
-| 5 | Per-frame baseline video | todo | record 10s clips: still, talking, head-turn |
-| 6 | Temporal smoothing | todo | EMA alpha=0.7 first, then per-landmark Kalman variant |
+| 5 | Per-frame baseline video | done | `src/process_clip.py record` + `run --smooth none` |
+| 6 | Temporal smoothing | code done, ablation pending | `src/smoothing.py` with EMA, vectorized per-landmark Kalman, **1-Euro Filter (Casiez 2012)** as a third method. CLI: `--smooth {ema,kalman,oneeuro}`. Sanity test on synthetic noisy stream: raw 4.6px jitter -> ema 1.32, kalman 1.41, oneeuro 1.13. |
 | 7 | Real-time optimization | todo | precompute triangulation, reuse map arrays, target 30 FPS live |
 | 8 | Evaluation script | todo | FPS, latency, ratio deltas, frame-to-frame L2, plots, JSON |
 
