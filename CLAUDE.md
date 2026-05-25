@@ -40,6 +40,7 @@ temporal filtering"):
 | 6 | Temporal smoothing | done | `src/smoothing.py` with EMA, vectorized per-landmark Kalman, **1-Euro Filter (Casiez 2012)** as the third method. CLI: `--smooth {ema,kalman,oneeuro}`. **Ablation on a 10s clip** (300 frames @30 FPS): mean frame-to-frame landmark L2 jitter `none 4.07 -> ema 3.28 (-19%), kalman 3.69 (-9%), oneeuro 3.40 (-16%)`. EMA strongest at rest but laggiest; 1-Euro the best lag-jitter tradeoff (matches Casiez 2012's claim). Plot: `results/phase6_jitter.png`, JSON: `results/phase6_jitter.json`. `src/process_clip.py` runs the offline pipeline; `src/jitter_compare.py` builds the comparison plot. |
 | 7 | Real-time optimization | todo | precompute triangulation, reuse map arrays, target 30 FPS live |
 | 8 | Evaluation script | todo | FPS, latency, ratio deltas, frame-to-frame L2, plots, JSON |
+| 8.5 | CMDP cross-subject evaluation | done | `src/cmdp_eval.py`. CMDP (Burgos-Artizzu 2014) = 51 subjects × 7 distances (2-16 ft). For each (subject, distance): run MediaPipe, compute `nose_w/face_w`, apply dense correction, re-measure. Use 16ft as per-subject GT. **Results (51 subjects, 347 images, alpha=2.0):** raw `nose_w/face_w` inflates from 0.279 (16ft) to 0.301 (2ft) — clear perspective signal. Correction closes 20% of the raw->GT gap at 2ft, 39% at 3ft, 93% at 6ft, and overshoots at 8-12ft. Alpha sweep (1.5/2.0/3.0) shows higher alpha = bigger close-range gap reduction. Plot: `results/cmdp_eval.png`. JSON: `results/cmdp_eval.json`. |
 
 ## Decisions / non-obvious choices
 
