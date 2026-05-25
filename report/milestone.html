@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CS 131 Milestone — Real-Time Perspective Correction for Selfie Video</title>
+<style>
+  @page { size: letter; margin: 0.6in 0.7in 0.6in 0.7in; }
+  html { font-family: "Times New Roman", Times, serif; font-size: 10pt; line-height: 1.22; color: #111; }
+  body { margin: 0; }
+  h1 { font-size: 14.5pt; margin: 0 0 2pt 0; text-align: center; font-weight: 700; }
+  .byline { text-align: center; font-size: 9.5pt; margin-bottom: 8pt; color: #333; }
+  h2 { font-size: 10.6pt; margin: 6pt 0 2pt 0; font-weight: 700; }
+  p { margin: 0 0 3pt 0; text-align: justify; }
+  ul { margin: 1pt 0 3pt 16pt; padding: 0; }
+  li { margin-bottom: 1pt; }
+  code, .mono { font-family: "Menlo", "Consolas", monospace; font-size: 8.8pt; }
+  .figrow { display: flex; gap: 6pt; align-items: flex-start; margin-top: 4pt; }
+  .figcell { flex: 1 1 0; }
+  .figcell img { width: 100%; height: auto; display: block; border: 0.4pt solid #ccc; }
+  .figcap { font-size: 8.4pt; color: #333; margin-top: 2pt; text-align: left; line-height: 1.22; }
+  .figcap b { color: #111; }
+  table { border-collapse: collapse; width: 100%; font-size: 9pt; margin: 2pt 0; }
+  th, td { padding: 2pt 5pt; text-align: left; border-bottom: 0.4pt solid #ccc; }
+  th { background: #f4f4f4; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .twocol { display: flex; gap: 12pt; }
+  .twocol > div { flex: 1 1 0; }
+</style>
+</head>
+<body>
+
+<h1>Real-Time Perspective Correction for Selfie Video</h1>
+<div class="byline">CS 131 Final Project Milestone &middot; Daoyuan Chi &middot; May 2026 &middot; Solo</div>
+
+<h2>1. Problem and proposal recap</h2>
+<p>Selfies and webcam video are shot at short camera-to-face distances (typically 30&ndash;60&nbsp;cm), so perspective projection enlarges close-to-camera features (nose, lips, forehead) relative to farther ones (cheeks, ears, jaw). The goal of this project is a real-time pipeline that reduces that distortion <em>and</em> remains temporally stable across video frames. Prior work (Fried&nbsp;2016, Shih&nbsp;2019, Zhao&nbsp;2019, DisCO&nbsp;2024) targets single still photos; the contribution here is to push correction into a streaming, sub-real-time pipeline with explicit temporal smoothing comparison.</p>
+
+<h2>2. Achievements</h2>
+<p>The full Phase 0&ndash;6 pipeline is implemented and runs on a MacBook webcam at ~18&ndash;20&nbsp;FPS with correction enabled. Concretely:</p>
+<ul>
+  <li><b>Phase&nbsp;0&ndash;1</b>: OpenCV capture loop + MediaPipe Face Mesh (478&nbsp;landmarks, iris refinement enabled). HUD shows live FPS and detection state.</li>
+  <li><b>Phase&nbsp;2</b>: per-frame distortion metrics computed from named MediaPipe landmark indices&nbsp;&mdash; IPD/face_w, nose_w/face_w, nose-chin/face_w, ear-ear/face_h&nbsp;&mdash; logged to a per-run CSV and rendered to the HUD.</li>
+  <li><b>Phase&nbsp;3 (milestone deliverable)</b>: <em>four</em> warp modes share the same Delaunay + <code>cv2.remap</code> infrastructure: a uniform-shrink baseline; depth-weighted radial shrink; a nose-region-only sparse warp; and the project's main contribution, a <em>dense depth-driven perspective re-projection</em> (Sec.&nbsp;4). All controlled by a single <code>--mode</code> flag plus <code>--strength</code>/<code>--alpha</code>.</li>
+  <li><b>Phase&nbsp;4</b>: alpha-mask boundary blending. The face-oval polygon is eroded by <code>feather/2</code> and Gaussian-blurred (&sigma;=feather/2); the corrected frame is blended back onto the raw image across that band, hiding the face-outline discontinuity.</li>
+  <li><b>Phase&nbsp;2&times;3 link (TA milestone feedback)</b>: <code>--auto-strength</code> derives the correction strength per frame from the measured nose-width ratio: <code>strength = clip(1 &minus; target_ratio / current_ratio, 0, max)</code>, with target&nbsp;0.22 (~85&nbsp;mm portrait reference per Burgos-Artizzu&nbsp;2014). Correction adapts as the user moves toward/away from the camera.</li>
+  <li><b>Phase&nbsp;5</b>: <code>src/process_clip.py</code> records a clip and re-processes it frame-by-frame, producing <code>baseline.mp4</code> and per-frame CSV/landmark logs.</li>
+  <li><b>Phase&nbsp;6</b>: three temporal smoothers&nbsp;&mdash; EMA, vectorized per-landmark Kalman, and the <b>1&nbsp;Euro Filter</b> (Casiez&nbsp;2012) as a third method&nbsp;&mdash; with a shared <code>update(pts,&nbsp;t)</code> interface.</li>
+  <li><b>Phase&nbsp;8.5 (ahead of schedule)</b>: cross-subject quantitative evaluation on the Caltech Multi-Distance Portraits dataset (Burgos-Artizzu&nbsp;2014), 51 subjects&nbsp;&times; 7 distances (Sec.&nbsp;5).</li>
+</ul>
+
+<h2>3. Deviations from the proposal</h2>
+<p>The proposal scoped Phase&nbsp;3 as a <em>uniform</em> shrink of central landmarks toward the face center by a constant factor (start with 0.92). When implemented, this visibly puffed the cheeks because the face oval was pinned while interior features compressed uniformly, leaving the cheek/jaw region disproportionately prominent. Three intermediate iterations (depth-weighted radial shrink, full-face symmetric depth re-projection, nose-region-only warp) each fixed one failure mode while introducing another; this lineage is preserved as a single <code>--mode</code> flag for ablation. The final default mode (Sec.&nbsp;4) is a genuinely different formulation that the proposal did not anticipate: a <em>dense</em> warp built from MediaPipe depth, not a sparse landmark displacement. The proposal's stated metrics, smoothing methods, and evaluation plan are otherwise unchanged.</p>
+
+<h2>4. Method: dense depth-driven perspective re-projection</h2>
+<p>The key observation was that every sparse-landmark warp produces triangle-spanning artifacts (squashed brow, ghosting at the head outline), because the deformation lives only at the 478 landmark vertices and gets piecewise-affine-interpolated across triangles that span depth discontinuities. The new method treats MediaPipe&nbsp;<code>(x,&nbsp;y,&nbsp;z)</code> as a sparse 3D <em>depth signal</em> rather than a set of points to move:</p>
+<ol style="margin-left:14pt;">
+  <li>Delaunay-triangulate over the 478 landmarks plus 8 image-corner anchors.</li>
+  <li>For each triangle, solve a 3&times;3 linear system to get an affine <code>z(x,y) = ax + by + c</code>, then rasterize <code>z</code> into a dense per-pixel depth map.</li>
+  <li>For every output pixel apply the pinhole perspective re-projection
+      <code>scale(u,v) = &alpha; (t&nbsp;+&nbsp;1) / (t&nbsp;+&nbsp;&alpha;)</code>
+      with <code>t = z(u,v) / d_old</code>, and invert with <code>cv2.remap</code> (<code>source = (output &minus; center) / scale + center</code>).</li>
+</ol>
+<p>The control knob &alpha; = <code>d_new / d_old</code> is the virtual-camera distance ratio: &alpha;=1 is no correction, &alpha;=2 is "as if shot from twice as far," large&nbsp;&alpha; approaches orthographic projection. Because the depth field is smooth, the resulting warp is smooth too; there are no peripheral artifacts. Cost is comparable to the sparse warp (~44&nbsp;ms per 720p frame), keeping the pipeline real-time.</p>
+
+<h2>5. Intermediate results</h2>
+
+<div class="figrow">
+  <div class="figcell">
+    <img src="../captures/20260525-151052_sidebyside.png" alt="qualitative before/after correction">
+    <div class="figcap"><b>Fig.&nbsp;1.</b> Phase&nbsp;3 qualitative: raw selfie (left) vs dense correction (right, &alpha;=2.0, feather=30). The face is subtly slimmer at the cheeks and the nose retreats; the head outline, hair, and background are untouched thanks to the alpha-mask boundary blend (Phase&nbsp;4).</div>
+  </div>
+  <div class="figcell">
+    <img src="../results/phase6_jitter.png" alt="Phase 6 smoother comparison">
+    <div class="figcap"><b>Fig.&nbsp;2.</b> Phase&nbsp;6 ablation on a 10&nbsp;s clip (300 frames @ 30&nbsp;FPS). Mean frame-to-frame landmark L2 jitter: <b>raw 4.07&nbsp;px</b>&nbsp;&rarr;&nbsp;EMA 3.28 (&minus;19%), Kalman 3.69 (&minus;9%), 1&nbsp;Euro 3.40 (&minus;17%). EMA is strongest on rest-state jitter but laggiest in motion; the 1&nbsp;Euro Filter trades a fraction of that for better motion responsiveness, matching Casiez&nbsp;2012's reported lag-jitter trade-off.</div>
+  </div>
+</div>
+
+<div class="figrow">
+  <div class="figcell" style="flex:1.6 1 0;">
+    <img src="../results/cmdp_eval.png" alt="CMDP cross-subject evaluation">
+    <div class="figcap"><b>Fig.&nbsp;3.</b> Phase&nbsp;8.5 (ahead of schedule): cross-subject evaluation on the Caltech Multi-Distance Portraits (Burgos-Artizzu&nbsp;2014). 51&nbsp;subjects&nbsp;&times; 7 distances (2&ndash;16&nbsp;ft), 347 images detected and corrected. <b>Left</b>: raw nose_w/face_w inflates from 0.279 (16&nbsp;ft, ground truth) to 0.301 (2&nbsp;ft), confirming the metric encodes perspective distortion across subjects; the dense correction pulls the curve toward the dashed&nbsp;GT line at every distance. <b>Right</b>: fraction of the raw&nbsp;&rarr;&nbsp;GT gap closed by the &alpha;=2.0 correction: 20% at 2&nbsp;ft, 39% at 3&nbsp;ft, 93% at 6&nbsp;ft. At 8&ndash;12&nbsp;ft the correction overshoots, which directly motivates <code>--auto-strength</code> (Sec.&nbsp;2): &alpha; should scale with measured distortion, not be a constant.</div>
+  </div>
+  <div class="figcell" style="flex:1 1 0;">
+    <h2 style="margin-top:0;">Updated timeline</h2>
+    <table>
+      <thead><tr><th>Week</th><th>Status</th><th>Phases</th></tr></thead>
+      <tbody>
+        <tr><td>5/15&ndash;5/22</td><td>done</td><td>0, 1, 2, 3 (4 modes), 4</td></tr>
+        <tr><td>5/22&ndash;5/29</td><td>done early</td><td>5, 6 (3 smoothers), <b>8.5</b></td></tr>
+        <tr><td>5/29&ndash;6/3</td><td>remaining</td><td>7 (real-time opt, target&nbsp;30&nbsp;FPS), 8 (FPS/latency JSON), Zhao&nbsp;2019 ML comparison mode, demo slides</td></tr>
+        <tr><td>6/3&ndash;6/6</td><td>remaining</td><td>final report (CVPR 4-page)</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:6pt;">Risks: Zhao&nbsp;2019 has CUDA-only dependencies that may not run on Mac CPU; fall-back is to skip and frame ML as future work in the report. Phase&nbsp;7 is unlikely to reach 30&nbsp;FPS without dropping resolution or down-sampling the per-pixel depth map; the most impactful caching is the Delaunay structure across frames once landmarks are smoothed.</p>
+  </div>
+</div>
+
+<div class="twocol" style="margin-top:4pt;">
+<div>
+<h2>6. What worked, what surprised</h2>
+<p>The auto-strength bridge between Phase&nbsp;2 metrics and Phase&nbsp;3 correction (per TA milestone feedback) makes the pipeline self-calibrating. CMDP confirmed the chosen metric encodes distance: across 51&nbsp;subjects mean nose_w/face_w rose 7.9% from 16&nbsp;ft to 2&nbsp;ft. The biggest surprise was the brittleness of sparse-landmark warps&nbsp;&mdash; MediaPipe places landmark&nbsp;10 (forehead top) far forward in z, so any radial-shrink moved it 50&ndash;65&nbsp;px and distorted the head. The dense reformulation made it go away.</p>
+</div>
+<div>
+<h2>7. Repository</h2>
+<p>Code, plots, and per-frame CSV/landmark logs at <span class="mono">github.com/Danni281/cs-131-final-project</span>. Headline figures: <span class="mono">results/phase6_jitter.png</span>, <span class="mono">results/cmdp_eval.png</span>. Default mode: <code>python src/main.py --correct-on-start --alpha 2.0</code>; every variant exposed via CLI flags for ablation. Dev log: <span class="mono">CLAUDE.md</span>; phase tracker: <span class="mono">README.md</span>.</p>
+</div>
+</div>
+
+</body>
+</html>
