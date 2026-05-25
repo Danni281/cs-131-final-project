@@ -34,7 +34,7 @@ temporal filtering"):
 | 0 | Webcam + FPS counter | done | folded into phase 1 entry point |
 | 1 | Face Mesh overlay + save key | done | `src/main.py`, captures land in `captures/` |
 | 2 | Landmark-ratio metrics + CSV | done | `src/metrics.py`. refine_landmarks=True (iris). CSV per run in `metrics_logs/`. Press `m` to toggle HUD. |
-| 3 | Single-frame correction (milestone) | done | `src/warp.py`. Three modes selectable via `--mode`. **Default: `nose`** (`nose_only_target`) — displaces only the ~20 NOSE_REGION landmarks, shrinking them toward the iris/mouth midpoint by `strength * depth_offset`. Artifact-free because 95%+ of landmarks stay pinned. `perspective` (`perspective_target`) tried symmetric+asymmetric depth re-projection — both produced visible peripheral artifacts (squashed brow, ghosting at head outline) because sparse 2D landmarks can't represent the full perspective transform without a 3D model. `uniform` (`uniform_target`) is the Phase 3 baseline kept for ablation. ~40ms warp on 720p. |
+| 3 | Single-frame correction (milestone) | done | `src/warp.py`. Three modes selectable via `--mode`. **Default: `nose`** (`nose_only_target`) — uniform shrink of ~21 NOSE_REGION landmarks toward the nose centroid by `strength`. Artifact-free because 95%+ of landmarks stay pinned. **`--auto-strength`** derives strength per frame from measured `nose_w/face_w` vs target 0.22 — connects Phase 2 measurement to Phase 3 correction. `perspective` tried depth re-projection on the whole face but produced peripheral artifacts. `uniform` is the Phase 3 baseline kept for ablation. ~40ms warp on 720p. |
 | 4 | Boundary alpha blending | done | `warp.make_alpha_mask` fills FACE_OVAL polygon, erodes by `--feather/2`, Gaussian-blurs (sigma=feather/2). `warp.blend` does `alpha*corrected + (1-alpha)*raw`. Default feather=30. Adds ~12ms at default; feather=80 adds ~90ms (kernel grows). |
 | 5 | Per-frame baseline video | todo | record 10s clips: still, talking, head-turn |
 | 6 | Temporal smoothing | todo | EMA alpha=0.7 first, then per-landmark Kalman variant |
@@ -63,11 +63,14 @@ temporal filtering"):
 
 ## Open questions / TODO before milestone
 
-- **Connect phase-2 metrics to phase-3 correction strength** (TA explicitly
-  flagged "define your distortion metrics with more detail"). The default
-  `--strength 0.15` should become a function of measured ratios, not a
-  constant. e.g. strength = f(nose_w/face_w deviation from a calibrated
-  long-lens reference).
+- ~~**Connect phase-2 metrics to phase-3 correction strength** (TA
+  explicitly flagged "define your distortion metrics with more
+  detail").~~ DONE — `--auto-strength` derives per-frame strength from
+  the measured nose_w/face_w ratio vs a portrait-distance reference
+  (0.22). Strength is no longer a hand-tuned constant; it's a function
+  of measured distortion. Adapts as the user moves toward/away from
+  the camera. Burgos-Artizzu 2014 (CMDP) supports the "landmark ratios
+  encode distance" premise; cite in report.
 - ~~Decide on a 3D scaffold or commit to 2D radial shrink with
   justification.~~ DONE — tried three approaches in sequence:
   (1) uniform shrink: puffy cheeks (proposal-style "start simple",
