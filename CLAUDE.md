@@ -34,7 +34,7 @@ temporal filtering"):
 | 0 | Webcam + FPS counter | done | folded into phase 1 entry point |
 | 1 | Face Mesh overlay + save key | done | `src/main.py`, captures land in `captures/` |
 | 2 | Landmark-ratio metrics + CSV | done | `src/metrics.py`. refine_landmarks=True (iris). CSV per run in `metrics_logs/`. Press `m` to toggle HUD. |
-| 3 | Single-frame correction (milestone) | done | `src/warp.py`. **Z-weighted shrink** is default: `warp.depth_weighted_target` pulls each landmark toward face center by `strength * normalized_depth` where normalized_depth=1 at closest landmark (nose tip) and 0 at farthest (cheek/jaw). FACE_OVAL stays pinned. Uniform-shrink baseline still available via `--uniform-scale` for ablation. scipy.spatial.Delaunay → per-triangle affine → cv2.remap. Press `c` for side-by-side. ~41ms per warp at 720p. |
+| 3 | Single-frame correction (milestone) | done | `src/warp.py`. Three modes selectable via `--mode`. **Default: `nose`** (`nose_only_target`) — displaces only the ~20 NOSE_REGION landmarks, shrinking them toward the iris/mouth midpoint by `strength * depth_offset`. Artifact-free because 95%+ of landmarks stay pinned. `perspective` (`perspective_target`) tried symmetric+asymmetric depth re-projection — both produced visible peripheral artifacts (squashed brow, ghosting at head outline) because sparse 2D landmarks can't represent the full perspective transform without a 3D model. `uniform` (`uniform_target`) is the Phase 3 baseline kept for ablation. ~40ms warp on 720p. |
 | 4 | Boundary alpha blending | done | `warp.make_alpha_mask` fills FACE_OVAL polygon, erodes by `--feather/2`, Gaussian-blurs (sigma=feather/2). `warp.blend` does `alpha*corrected + (1-alpha)*raw`. Default feather=30. Adds ~12ms at default; feather=80 adds ~90ms (kernel grows). |
 | 5 | Per-frame baseline video | todo | record 10s clips: still, talking, head-turn |
 | 6 | Temporal smoothing | todo | EMA alpha=0.7 first, then per-landmark Kalman variant |
@@ -69,9 +69,18 @@ temporal filtering"):
   constant. e.g. strength = f(nose_w/face_w deviation from a calibrated
   long-lens reference).
 - ~~Decide on a 3D scaffold or commit to 2D radial shrink with
-  justification.~~ DONE — Phase 3 now uses MediaPipe z to weight
-  per-landmark shrink (closer = more shrink). Naive uniform shrink
-  visibly puffed the cheeks; depth-weighted version doesn't.
+  justification.~~ DONE — tried three approaches in sequence:
+  (1) uniform shrink: puffy cheeks (proposal-style "start simple",
+  doesn't look good).
+  (2) full-face depth re-projection (symmetric and asymmetric): visible
+  peripheral artifacts because radial scaling over-displaces brow/
+  forehead landmarks that are far from face center AND have very
+  negative z. Sparse 2D landmarks can't faithfully reproduce a 3D
+  perspective transform; Fried 2016 needed a 3DMM for this reason.
+  (3) **nose-only restriction**: displace only NOSE_REGION (~20
+  landmarks); everything else pinned. Subtle, clean, defensible. This
+  is the default and what the milestone visuals use. Discuss the
+  attempted broader approaches as a methodology story in the report.
 - Phase 4 blending intentionally keeps the hard-boundary warp under the
   hood — the alpha mask only hides the discontinuity at the head outline.
   A future refactor could distribute the displacement across the boundary
