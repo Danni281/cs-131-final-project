@@ -45,6 +45,8 @@
   <li><b>Phase&nbsp;2&times;3 link (TA milestone feedback)</b>: <code>--auto-strength</code> derives the correction strength per frame from the measured nose-width ratio: <code>strength = clip(1 &minus; target_ratio / current_ratio, 0, max)</code>, with target&nbsp;0.22 (~85&nbsp;mm portrait reference per Burgos-Artizzu&nbsp;2014). Correction adapts as the user moves toward/away from the camera.</li>
   <li><b>Phase&nbsp;5</b>: <code>src/process_clip.py</code> records a clip and re-processes it frame-by-frame, producing <code>baseline.mp4</code> and per-frame CSV/landmark logs.</li>
   <li><b>Phase&nbsp;6</b>: three temporal smoothers&nbsp;&mdash; EMA, vectorized per-landmark Kalman, and the <b>1&nbsp;Euro Filter</b> (Casiez&nbsp;2012) as a third method&nbsp;&mdash; with a shared <code>update(pts,&nbsp;t)</code> interface.</li>
+  <li><b>Phase&nbsp;7 (ahead of schedule)</b>: real-time optimization. Two CLI knobs (<code>--depth-downsample</code>, <code>--process-downsample</code>) downsample the smooth-signal stages of the dense warp. 720p warp cost falls 42.7&nbsp;&rarr;&nbsp;24.1&nbsp;ms (~42&nbsp;FPS warp-only, ~34&nbsp;FPS end-to-end), clearing the 30&nbsp;FPS target.</li>
+  <li><b>Phase&nbsp;8 (ahead of schedule)</b>: end-to-end evaluation script (<code>src/eval.py</code>) runs five variants on a recorded clip and reports per-stage latency, FPS, pre/post nose ratio, and frame-to-frame landmark jitter as JSON + two-panel plot.</li>
   <li><b>Phase&nbsp;8.5 (ahead of schedule)</b>: cross-subject quantitative evaluation on the Caltech Multi-Distance Portraits dataset (Burgos-Artizzu&nbsp;2014), 51 subjects&nbsp;&times; 7 distances (Sec.&nbsp;5).</li>
 </ul>
 
@@ -86,12 +88,12 @@
       <thead><tr><th>Week</th><th>Status</th><th>Phases</th></tr></thead>
       <tbody>
         <tr><td>5/15&ndash;5/22</td><td>done</td><td>0, 1, 2, 3 (4 modes), 4</td></tr>
-        <tr><td>5/22&ndash;5/29</td><td>done early</td><td>5, 6 (3 smoothers), <b>8.5</b></td></tr>
-        <tr><td>5/29&ndash;6/3</td><td>remaining</td><td>7 (real-time opt, target&nbsp;30&nbsp;FPS), 8 (FPS/latency JSON), Zhao&nbsp;2019 ML comparison mode, demo slides</td></tr>
+        <tr><td>5/22&ndash;5/29</td><td>done early</td><td>5, 6 (3 smoothers), <b>7</b>, <b>8</b>, <b>8.5</b></td></tr>
+        <tr><td>5/29&ndash;6/3</td><td>remaining</td><td>Zhao&nbsp;2019 ML comparison mode (CUDA wheels on the NVIDIA workstation), demo slides</td></tr>
         <tr><td>6/3&ndash;6/6</td><td>remaining</td><td>final report (CVPR 4-page)</td></tr>
       </tbody>
     </table>
-    <p style="margin-top:6pt;">Risks: Zhao&nbsp;2019 has CUDA-only dependencies that may not run on Mac CPU; fall-back is to skip and frame ML as future work in the report. Phase&nbsp;7 is unlikely to reach 30&nbsp;FPS without dropping resolution or down-sampling the per-pixel depth map; the most impactful caching is the Delaunay structure across frames once landmarks are smoothed.</p>
+    <p style="margin-top:6pt;">Risks: Zhao&nbsp;2019 expects CUDA; the available NVIDIA GPU makes integration feasible but the released checkpoint may have stale PyTorch/MMCV pins that need a small adaptation pass. Likely budget: half a day. If the comparison frame doesn't fit the 4-page report, it goes into the demo slides instead.</p>
   </div>
 </div>
 
@@ -101,8 +103,8 @@
 <p>The auto-strength bridge between Phase&nbsp;2 metrics and Phase&nbsp;3 correction (per TA milestone feedback) makes the pipeline self-calibrating. CMDP confirmed the chosen metric encodes distance: across 51&nbsp;subjects mean nose_w/face_w rose 7.9% from 16&nbsp;ft to 2&nbsp;ft. The biggest surprise was the brittleness of sparse-landmark warps&nbsp;&mdash; MediaPipe places landmark&nbsp;10 (forehead top) far forward in z, so any radial-shrink moved it 50&ndash;65&nbsp;px and distorted the head. The dense reformulation made it go away.</p>
 </div>
 <div>
-<h2>7. Repository</h2>
-<p>Code, plots, and per-frame CSV/landmark logs at <span class="mono">github.com/Danni281/cs-131-final-project</span>. Headline figures: <span class="mono">results/phase6_jitter.png</span>, <span class="mono">results/cmdp_eval.png</span>. Default mode: <code>python src/main.py --correct-on-start --alpha 2.0</code>; every variant exposed via CLI flags for ablation. Dev log: <span class="mono">CLAUDE.md</span>; phase tracker: <span class="mono">README.md</span>.</p>
+<h2>7. Repository &amp; assistance</h2>
+<p>Code, plots, and per-frame CSV/landmark logs at <span class="mono">github.com/Danni281/cs-131-final-project</span>. Headline figures: <span class="mono">results/phase6_jitter.png</span>, <span class="mono">results/cmdp_eval.png</span>. Default: <code>python src/main.py --correct-on-start --alpha 2.0</code>; every variant exposed via CLI flags for ablation. Phase tracker in <span class="mono">README.md</span>. <b>Dev / AI&nbsp;assistance log:</b> <span class="mono">CLAUDE.md</span> in the repo root records the running development context and reasoning used during this project; all design decisions, debugging, and writing were collaborated on with Claude.</p>
 </div>
 </div>
 
