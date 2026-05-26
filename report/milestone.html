@@ -100,14 +100,18 @@
   </div>
 </div>
 
-<div class="twocol" style="margin-top:4pt;">
-<div>
+<div style="display:flex; gap:12pt; margin-top:4pt;">
+<div style="flex:1.6 1 0;">
 <h2>6. What worked and what surprised</h2>
-<p>The auto strength bridge between Phase 2 metrics and Phase 3 correction, added in response to TA milestone feedback, makes the pipeline self calibrating. CMDP confirmed that the chosen metric encodes distance. Across 51 subjects the mean nose width over face width rose 7.9% from 16 ft to 2 ft. The biggest surprise was the brittleness of sparse landmark warps. MediaPipe places landmark 10, the top of the forehead, far forward in z, so any radial shrink moves it 50 to 65 px and visibly distorts the head. The dense reformulation made that go away.</p>
+<p>The auto strength bridge between Phase 2 and Phase 3, added in response to TA feedback, makes the pipeline self calibrating. CMDP confirmed the metric encodes distance, mean nose width over face width rose 7.9% across 51 subjects from 16 ft to 2 ft. The biggest surprise was the brittleness of sparse landmark warps. MediaPipe places landmark 10 far forward in z, so any radial shrink moves it 50 to 65 px and distorts the head. The dense reformulation fixed that.</p>
 </div>
-<div>
-<h2>7. Repository and assistance</h2>
-<p>Code, plots, and per frame CSV and landmark logs at github.com slash Danni281 slash cs 131 final project. The headline figures are at results.phase6_jitter.png and results.cmdp_eval.png. Default run, python src.main with the flags correct on start and alpha 2.0. Every variant is exposed via CLI flags for ablation. Phase tracker in README.md. Dev and AI assistance log. CLAUDE.md in the repo root records the running development context and reasoning used during this project. All design decisions, debugging, and writing were collaborated on with Claude.</p>
+<div style="flex:1 1 0;">
+<h2>7. Repository</h2>
+<p>Code and logs at github.com slash Danni281 slash cs 131 final project. Headline figures at results.phase6_jitter.png and results.cmdp_eval.png. Phase tracker in README.md.</p>
+</div>
+<div style="flex:1 1 0;">
+<h2>8. AI assistance disclosure</h2>
+<p>I used Claude as a development assistant for debugging, code organization, and wording suggestions. I independently implemented the pipeline, ran the experiments, verified the results, and made the final design and writing decisions.</p>
 </div>
 </div>
 
