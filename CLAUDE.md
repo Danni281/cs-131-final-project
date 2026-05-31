@@ -17,21 +17,23 @@ Course: Stanford CS 131, Spring 2026. Solo project (Daoyuan Chi, Danni281).
 ## Current status, one paragraph
 
 Phases 0 through 8 plus 8.5 are DONE and committed. The milestone PDF is
-written and was submitted (report/milestone.pdf, 3 pages). An ML extension
-is CODED but NOT YET RUN: it swaps in Depth Anything V2 as a learned depth
-source. That needs the Windows + RTX 5070 Ti box because the Mac venv has no
-torch. After the ML results come back, what remains is the demo slides
-(due 6/2) and the 4-page CVPR final report (due 6/6).
+written and was submitted (report/milestone.pdf, 3 pages). The ML extension
+(Depth Anything V2 as a learned depth source) is now RUN and committed: it
+was executed on the Windows + RTX 5070 Ti laptop on 2026-05-31. Results live
+in results/cmdp_eval_ml.{png,json} and results/ml_compare_*.png. What remains
+is the demo slides (due 6/2) and the 4-page CVPR final report (due 6/6); both
+can now cite the ML numbers in "Key results to cite" below.
 
 ## What to do next (the actual TODO)
 
-1. **On the Windows 5070 Ti box**: follow `report/RUN_ON_WINDOWS_GPU.md`
-   end to end. It installs torch (CUDA 12.6 wheels) + transformers,
-   downloads the CMDP images, and runs three experiments:
-   - `python src\ml_compare.py image captures\20260525-151052_raw.png`
-   - `python src\ml_compare.py cmdp-grid --subject 0`
-   - `python src\cmdp_eval.py --alpha 2.0 --ml-depth --out-prefix cmdp_eval_ml`
-   Then `git add results\ml_compare_*.png results\cmdp_eval_ml.* && git commit && git push`.
+1. ~~On the Windows 5070 Ti box: run the ML extension end to end.~~ DONE
+   2026-05-31. The runbook had several never-run bugs (cu126 torch lacks
+   sm_120 for this Blackwell laptop GPU; the CMDP curl/redirect dance was
+   wrong; experiment A pointed at a gitignored capture; cmdp_eval.py used
+   `sys` without importing it) -- all now fixed in
+   `report/RUN_ON_WINDOWS_GPU.md` and `src/cmdp_eval.py`. Committed outputs:
+   results/cmdp_eval_ml.{png,json}, results/ml_compare_cmdp_subject0.png,
+   results/ml_compare_K36K-060208_2.png.
 2. **Back on any box**: pull, integrate the ML figures into the report.
 3. **Write the 4-page CVPR report** (not started). Section skeleton + the
    citation list are below.
@@ -52,8 +54,15 @@ torch. After the ML results come back, what remains is the demo slides
 
 ### Windows + RTX 5070 Ti (ML only)
 - See `report/RUN_ON_WINDOWS_GPU.md` for the full setup.
-- Python 3.12 venv, `pip install -r requirements.txt`, then torch cu126
-  wheels + transformers + pillow + accelerate.
+- Python 3.12 venv, `pip install -r requirements.txt`, then torch **cu128**
+  wheels (NOT cu126) + transformers + accelerate + pillow.
+- The 5070 Ti here is a **Laptop GPU**, Blackwell, compute capability sm_120.
+  cu126 wheels have no sm_120 kernels: torch.cuda.is_available() returns True
+  but the first real GPU op raises "no kernel image is available". cu128 (and
+  cu130) wheels include sm_120. Driver 592.02 / CUDA 13.1.
+- Cloned to `C:\Users\danie\dev\cs-131-final-project` (deliberately OUTSIDE
+  OneDrive so OneDrive does not sync/corrupt `.git`). Installed Python 3.12
+  via `winget install Python.Python.3.12`.
 - `git clone https://github.com/Danni281/cs-131-final-project.git` to start;
   this machine has Claude Code, the Windows box may not, so this file is the
   handoff.
@@ -107,7 +116,7 @@ report/RUN_ON_WINDOWS_GPU.md   the GPU runbook
 | 7 | Real-time optimization | done | `--depth-downsample` (default 2), `--process-downsample` (default 1). 720p warp: ds1/ps1 42.7ms, ds2/ps1 38.4ms, ds2/ps2 24.1ms (~41 FPS warp-only). Live ~30 FPS default. |
 | 8 | Evaluation script | done | `src/eval.py`: 5 variants on a clip; per-stage latency, FPS, pre/post ratio, jitter; JSON + `results/eval_default.png`. |
 | 8.5 | CMDP cross-subject eval | done | `src/cmdp_eval.py`. 51 subjects x 7 distances. raw nose_w/face_w 0.279 (16ft) -> 0.301 (2ft). Correction closes 20% of raw->GT gap at 2ft, 39% at 3ft, 93% at 6ft, overshoots at 8-12ft. Plot `results/cmdp_eval.png`. |
-| 9 (ML) | Depth Anything V2 depth source | coded, NOT RUN | `src/ml_depth.py`, `src/ml_compare.py`, `cmdp_eval.py --ml-depth`. Needs the Windows GPU box. See TODO above. |
+| 9 (ML) | Depth Anything V2 depth source | done | Run 2026-05-31 on the 5070 Ti laptop (cu128 torch, ~6.6 min, 347/357 CMDP images). ML depth closes more of the raw->GT nose-ratio gap at close range (2ft 43% vs MP 38%, 3ft 59% vs 32%, 4ft 78% vs 33%); both overshoot past 6ft. `src/ml_depth.py`, `src/ml_compare.py`, `cmdp_eval.py --ml-depth`. `results/cmdp_eval_ml.*`. |
 
 ## The ML pivot (important context)
 
@@ -148,8 +157,15 @@ as "external" vs "mediapipe".
 - Phase 8.5 CMDP: raw nose_w/face_w 0.279 (16ft GT) to 0.301 (2ft);
   correction closes 20% (2ft) / 39% (3ft) / 93% (6ft) of the raw->GT gap;
   overshoots at 8-12ft which motivates --auto-strength. (`results/cmdp_eval.png`)
-- ML (pending): cmdp_eval_ml.png will give MediaPipe-depth vs ML-depth
-  gap-closed side by side across 51 subjects.
+- ML (done 2026-05-31): MediaPipe-depth vs ML-depth (Depth Anything V2
+  Small) gap-closed across 51 CMDP subjects, alpha=2.0, 347/357 images.
+  GT (16ft mean nose_w/face_w) = 0.277. % of raw->GT gap closed,
+  MediaPipe vs ML: 2ft 38% vs 43%, 3ft 32% vs 59%, 4ft 33% vs 78%,
+  6ft 66% vs 151%, 8ft 93% vs 331%. Reading: ML depth corrects harder, so it
+  wins at the close range where selfies live but overshoots past ~6ft -- the
+  same fixed-alpha overshoot --auto-strength is meant to damp. ML inference
+  ~10ms/frame on the 5070 Ti. (`results/cmdp_eval_ml.png`, `cmdp_eval_ml.json`,
+  `results/ml_compare_cmdp_subject0.png` qualitative grid.)
 
 ## Method lineage (the methodology story for the report)
 
